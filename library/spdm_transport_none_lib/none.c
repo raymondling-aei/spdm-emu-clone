@@ -39,6 +39,21 @@ uint32_t spdm_none_get_max_random_number_count(void)
 }
 
 /**
+ * This function translates the negotiated secured_message_version to a DSP0277 version.
+ *
+ * @param  secured_message_version  The version specified in binding specification and
+ *                                  negotiated in KEY_EXCHANGE/KEY_EXCHANGE_RSP.
+ *
+ * @return The DSP0277 version specified in binding specification,
+ *         which is bound to secured_message_version.
+ */
+spdm_version_number_t spdm_none_get_secured_spdm_version(
+    spdm_version_number_t secured_message_version)
+{
+    return 0;
+}
+
+/**
  * Encode a normal message or secured message to a transport message.
  *
  * @param  session_id                    Indicates if it is a secured message protected via SPDM session.
@@ -56,9 +71,9 @@ uint32_t spdm_none_get_max_random_number_count(void)
  * @retval RETURN_INVALID_PARAMETER     The message is NULL or the message_size is zero.
  **/
 libspdm_return_t none_encode_message(const uint32_t *session_id, size_t message_size,
-                                  const void *message,
-                                  size_t *transport_message_size,
-                                  void **transport_message)
+                                     const void *message,
+                                     size_t *transport_message_size,
+                                     void **transport_message)
 {
     *transport_message_size = message_size;
     *transport_message = (void *)message;
@@ -82,9 +97,9 @@ libspdm_return_t none_encode_message(const uint32_t *session_id, size_t message_
  * @retval RETURN_INVALID_PARAMETER     The message is NULL or the message_size is zero.
  **/
 libspdm_return_t none_decode_message(uint32_t **session_id,
-                                  size_t transport_message_size,
-                                  const void *transport_message,
-                                  size_t *message_size, void **message)
+                                     size_t transport_message_size,
+                                     const void *transport_message,
+                                     size_t *message_size, void **message)
 {
     *message_size = transport_message_size;
     *message = (void *)transport_message;

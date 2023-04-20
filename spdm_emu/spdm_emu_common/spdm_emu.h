@@ -22,6 +22,7 @@
 #include "nv_storage.h"
 
 extern uint32_t m_use_transport_layer;
+extern uint32_t m_use_tcp_handshake;
 extern uint8_t m_use_version;
 extern uint8_t m_use_secured_message_version;
 extern uint32_t m_use_requester_capability_flags;
@@ -98,13 +99,13 @@ bool receive_platform_data(SOCKET socket, uint32_t *command,
 
 
 libspdm_return_t spdm_device_acquire_sender_buffer (
-    void *context, size_t *max_msg_size, void **msg_buf_ptr);
+    void *context, void **msg_buf_ptr);
 
 void spdm_device_release_sender_buffer (
     void *context, const void *msg_buf_ptr);
 
 libspdm_return_t spdm_device_acquire_receiver_buffer (
-    void *context, size_t *max_msg_size, void **msg_buf_ptr);
+    void *context, void **msg_buf_ptr);
 
 void spdm_device_release_receiver_buffer (
     void *context, const void *msg_buf_ptr);
@@ -113,7 +114,7 @@ bool libspdm_read_input_file(const char *file_name, void **file_data,
                              size_t *file_size);
 
 bool libspdm_write_output_file(const char *file_name, const void *file_data,
-                       size_t file_size);
+                               size_t file_size);
 
 bool open_pcap_packet_file(const char *pcap_file_name);
 
@@ -124,8 +125,64 @@ void append_pcap_packet_data(const void *header, size_t header_size,
 
 void process_args(char *program_name, int argc, char *argv[]);
 
+bool create_socket(uint16_t port_number, SOCKET *listen_socket);
+
+bool init_client(SOCKET *sock, uint16_t port);
+
+bool read_bytes(const SOCKET socket, uint8_t *buffer,
+                uint32_t number_of_bytes);
+
+bool write_bytes(const SOCKET socket, const uint8_t *buffer,
+                 uint32_t number_of_bytes);
+
+/* define common LIBSPDM_TRANSPORT_ADDITIONAL_SIZE. It should be the biggest one. */
+#define LIBSPDM_TRANSPORT_ADDITIONAL_SIZE 64
+#if LIBSPDM_TRANSPORT_ADDITIONAL_SIZE < LIBSPDM_NONE_TRANSPORT_ADDITIONAL_SIZE
+#error LIBSPDM_TRANSPORT_ADDITIONAL_SIZE is smaller than the required size in NONE
+#endif
+#if LIBSPDM_TRANSPORT_ADDITIONAL_SIZE < LIBSPDM_TCP_TRANSPORT_ADDITIONAL_SIZE
+#error LIBSPDM_TRANSPORT_ADDITIONAL_SIZE is smaller than the required size in TCP
+#endif
+#if LIBSPDM_TRANSPORT_ADDITIONAL_SIZE < LIBSPDM_PCI_DOE_TRANSPORT_ADDITIONAL_SIZE
+#error LIBSPDM_TRANSPORT_ADDITIONAL_SIZE is smaller than the required size in PCI_DOE
+#endif
+#if LIBSPDM_TRANSPORT_ADDITIONAL_SIZE < LIBSPDM_MCTP_TRANSPORT_ADDITIONAL_SIZE
+#error LIBSPDM_TRANSPORT_ADDITIONAL_SIZE is smaller than the required size in MCTP
+#endif
+
+#ifndef LIBSPDM_SENDER_BUFFER_SIZE
+#define LIBSPDM_SENDER_BUFFER_SIZE (0x1100 + \
+                                    LIBSPDM_TRANSPORT_ADDITIONAL_SIZE)
+#endif
+#ifndef LIBSPDM_RECEIVER_BUFFER_SIZE
+#define LIBSPDM_RECEIVER_BUFFER_SIZE (0x1200 + \
+                                      LIBSPDM_TRANSPORT_ADDITIONAL_SIZE)
+#endif
+
+/* Maximum size of a single SPDM message.
+ * It matches DataTransferSize in SPDM specification. */
+#define LIBSPDM_SENDER_DATA_TRANSFER_SIZE (LIBSPDM_SENDER_BUFFER_SIZE - \
+                                           LIBSPDM_TRANSPORT_ADDITIONAL_SIZE)
+#define LIBSPDM_RECEIVER_DATA_TRANSFER_SIZE (LIBSPDM_RECEIVER_BUFFER_SIZE - \
+                                             LIBSPDM_TRANSPORT_ADDITIONAL_SIZE)
+#define LIBSPDM_DATA_TRANSFER_SIZE LIBSPDM_RECEIVER_DATA_TRANSFER_SIZE
+
+#if (LIBSPDM_SENDER_BUFFER_SIZE > LIBSPDM_RECEIVER_BUFFER_SIZE)
+#define LIBSPDM_MAX_SENDER_RECEIVER_BUFFER_SIZE LIBSPDM_SENDER_BUFFER_SIZE
+#else
+#define LIBSPDM_MAX_SENDER_RECEIVER_BUFFER_SIZE LIBSPDM_RECEIVER_BUFFER_SIZE
+#endif
+
+/* Maximum size of a large SPDM message.
+ * If chunk is unsupported, it must be same as DATA_TRANSFER_SIZE.
+ * If chunk is supported, it must be larger than DATA_TRANSFER_SIZE.
+ * It matches MaxSPDMmsgSize in SPDM specification. */
+#ifndef LIBSPDM_MAX_SPDM_MSG_SIZE
+#define LIBSPDM_MAX_SPDM_MSG_SIZE 0x1200
+#endif
+
 /* expose it because the responder/requester may use it to send/receive other message such as DOE discovery */
-extern uint8_t m_send_receive_buffer[LIBSPDM_SENDER_RECEIVE_BUFFER_SIZE];
+extern uint8_t m_send_receive_buffer[LIBSPDM_MAX_SENDER_RECEIVER_BUFFER_SIZE];
 extern size_t m_send_receive_buffer_size;
 
 static inline bool libspdm_onehot0(uint32_t mask)

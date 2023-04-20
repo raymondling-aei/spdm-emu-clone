@@ -9,6 +9,12 @@
 
 #include "library/spdm_common_lib.h"
 
+#define LIBSPDM_NONE_ALIGNMENT 1
+#define LIBSPDM_NONE_SEQUENCE_NUMBER_COUNT 0
+#define LIBSPDM_NONE_MAX_RANDOM_NUMBER_COUNT 0
+
+/* NONE type does not support secured message */
+#define LIBSPDM_NONE_TRANSPORT_ADDITIONAL_SIZE    (0)
 
 /**
  * Encode an SPDM or APP message to a transport layer message.
@@ -119,5 +125,17 @@ uint8_t spdm_none_get_sequence_number(uint64_t sequence_number,
  *        0 means no randum number is required.
  **/
 uint32_t spdm_none_get_max_random_number_count(void);
+
+/**
+ * This function translates the negotiated secured_message_version to a DSP0277 version.
+ *
+ * @param  secured_message_version  The version specified in binding specification and
+ *                                  negotiated in KEY_EXCHANGE/KEY_EXCHANGE_RSP.
+ *
+ * @return The DSP0277 version specified in binding specification,
+ *         which is bound to secured_message_version.
+ */
+spdm_version_number_t spdm_none_get_secured_spdm_version(
+    spdm_version_number_t secured_message_version);
 
 #endif

@@ -57,13 +57,12 @@ libspdm_return_t get_digest_cert_in_session(const uint32_t *session_id)
     libspdm_zero_mem(cert_chain, sizeof(cert_chain));
     libspdm_zero_mem(measurement_hash, sizeof(measurement_hash));
 
-    status = libspdm_get_digest_in_session(spdm_context, session_id, &slot_mask,
-                                           total_digest_buffer);
+    status = libspdm_get_digest(spdm_context, session_id, &slot_mask, total_digest_buffer);
     if (LIBSPDM_STATUS_IS_ERROR(status)) {
         return status;
     }
     if (m_use_slot_id != 0xFF) {
-        status = libspdm_get_certificate_in_session(
+        status = libspdm_get_certificate_ex(
             spdm_context, session_id, m_use_slot_id, &cert_chain_size, cert_chain, NULL, 0);
         if (LIBSPDM_STATUS_IS_ERROR(status)) {
             return status;
@@ -89,6 +88,8 @@ libspdm_return_t do_session_via_spdm(bool use_psk)
     heartbeat_period = 0;
     libspdm_zero_mem(measurement_hash, sizeof(measurement_hash));
     status = libspdm_start_session(spdm_context, use_psk,
+                                   LIBSPDM_TEST_PSK_HINT_STRING,
+                                   sizeof(LIBSPDM_TEST_PSK_HINT_STRING),
                                    m_use_measurement_summary_hash_type,
                                    m_use_slot_id, m_session_policy, &session_id,
                                    &heartbeat_period, measurement_hash);
@@ -178,7 +179,7 @@ libspdm_return_t do_session_via_spdm(bool use_psk)
         status = do_certificate_provising_via_spdm(&session_id);
         if (LIBSPDM_STATUS_IS_ERROR(status)) {
             printf("do_certificate_provising_via_spdm - %x\n",
-                (uint32_t)status);
+                   (uint32_t)status);
             return status;
         }
     }
@@ -196,9 +197,9 @@ libspdm_return_t do_session_via_spdm(bool use_psk)
 }
 
 /*
-* These function implements the request and response messages used for provisioning a device with certificate chains.
-* Provisioning of Slot 0 should be only done in a secure environment (such as a secure manufacturing environment)
-*/
+ * These function implements the request and response messages used for provisioning a device with certificate chains.
+ * Provisioning of Slot 0 should be only done in a secure environment (such as a secure manufacturing environment)
+ */
 libspdm_return_t do_certificate_provising_via_spdm(uint32_t* session_id)
 {
     void *spdm_context;
@@ -227,11 +228,11 @@ libspdm_return_t do_certificate_provising_via_spdm(uint32_t* session_id)
     csr_len = LIBSPDM_MAX_CSR_SIZE;
     libspdm_zero_mem(csr_form_get, sizeof(csr_form_get));
     if ((m_exe_session & EXE_SESSION_GET_CSR) != 0) {
-        status = libspdm_get_csr(spdm_context, NULL, 0, NULL, 0, NULL, csr_form_get,
-                                &csr_len);
+        status = libspdm_get_csr(spdm_context, NULL, NULL, 0, NULL, 0, csr_form_get,
+                                 &csr_len);
         if (LIBSPDM_STATUS_IS_ERROR(status)) {
             printf("libspdm_get_csr - %x\n",
-                    (uint32_t)status);
+                   (uint32_t)status);
             return status;
         }
     }
@@ -240,10 +241,10 @@ libspdm_return_t do_certificate_provising_via_spdm(uint32_t* session_id)
 
 #if LIBSPDM_ENABLE_CAPABILITY_SET_CERTIFICATE_CAP
     res = libspdm_read_responder_public_certificate_chain(m_use_hash_algo,
-                                                        m_use_asym_algo,
-                                                        &cert_chain_to_set,
-                                                        &cert_chain_size_to_set,
-                                                        NULL, NULL);
+                                                          m_use_asym_algo,
+                                                          &cert_chain_to_set,
+                                                          &cert_chain_size_to_set,
+                                                          NULL, NULL);
     if (!res) {
         printf("set certificate :read_responder_public_certificate_chain fail!\n");
         free(cert_chain_to_set);
@@ -253,12 +254,12 @@ libspdm_return_t do_certificate_provising_via_spdm(uint32_t* session_id)
     /*set_certificate for slot_id:0 in secure environment*/
     if ((m_exe_session & EXE_SESSION_SET_CERT) != 0) {
         slot_id = 0;
-        status = libspdm_set_certificate(spdm_context, slot_id,
-                                        cert_chain_to_set, cert_chain_size_to_set, NULL);
+        status = libspdm_set_certificate(spdm_context, NULL, slot_id,
+                                         cert_chain_to_set, cert_chain_size_to_set);
 
         if (LIBSPDM_STATUS_IS_ERROR(status)) {
             printf("libspdm_set_certificate - %x\n",
-                (uint32_t)status);
+                   (uint32_t)status);
             free(cert_chain_to_set);
             return status;
         }
@@ -269,12 +270,12 @@ libspdm_return_t do_certificate_provising_via_spdm(uint32_t* session_id)
     if (session_id != NULL) {
         if ((m_exe_session & EXE_SESSION_SET_CERT) != 0) {
             slot_id = 1;
-            status = libspdm_set_certificate(spdm_context, slot_id,
-                                            cert_chain_to_set, cert_chain_size_to_set, session_id);
+            status = libspdm_set_certificate(spdm_context, session_id, slot_id,
+                                             cert_chain_to_set, cert_chain_size_to_set);
 
             if (LIBSPDM_STATUS_IS_ERROR(status)) {
                 printf("libspdm_set_certificate - %x\n",
-                            (uint32_t)status);
+                       (uint32_t)status);
             }
 
             free(cert_chain_to_set);
