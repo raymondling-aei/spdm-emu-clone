@@ -30,7 +30,7 @@ typedef struct {
     uint16_t req_base_asym_alg;
     uint16_t key_schedule;
     size_t vca_buffer_size;
-    uint8_t vca_buffer[LIBSPDM_MAX_MESSAGE_SMALL_BUFFER_SIZE];
+    uint8_t vca_buffer[LIBSPDM_MAX_MESSAGE_VCA_BUFFER_SIZE];
 } spdm_negotiated_state_struct_t;
 #pragma pack()
 
@@ -44,13 +44,13 @@ libspdm_return_t spdm_provision_psk_version_only(void *spdm_context,
  * Load the negotiated_state from NV storage to an SPDM context.
  */
 libspdm_return_t spdm_load_negotiated_state(void *spdm_context,
-                                         bool is_requester);
+                                            bool is_requester);
 
 /**
  * Save the negotiated_state to NV storage from an SPDM context.
  */
 libspdm_return_t spdm_save_negotiated_state(void *spdm_context,
-                                         bool is_requester);
+                                            bool is_requester);
 
 /**
  * Clear the negotiated_state in the NV storage.

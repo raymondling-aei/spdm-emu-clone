@@ -24,7 +24,8 @@
  *  @return ERROR          The request is not processed.
  **/
 libspdm_return_t pci_tdisp_get_response_interface_report (const void *pci_doe_context,
-                                                          const void *spdm_context, const uint32_t *session_id,
+                                                          const void *spdm_context,
+                                                          const uint32_t *session_id,
                                                           const void *request, size_t request_size,
                                                           void *response, size_t *response_size)
 {
@@ -52,7 +53,7 @@ libspdm_return_t pci_tdisp_get_response_interface_report (const void *pci_doe_co
     interface_report = NULL;
     interface_report_size = 0;
     error_code = pci_tdisp_device_get_interface_report (pci_doe_context, spdm_context, session_id,
-                                                        &tdisp_response->header.interface_id,
+                                                        &tdisp_request->header.interface_id,
                                                         &interface_report, &interface_report_size);
     if (error_code != PCI_TDISP_ERROR_CODE_SUCCESS) {
         return pci_tdisp_get_response_error (pci_doe_context, spdm_context, session_id,
@@ -79,13 +80,15 @@ libspdm_return_t pci_tdisp_get_response_interface_report (const void *pci_doe_co
         length = interface_report_size - offset;
     }
 
-    LIBSPDM_ASSERT (*response_size >= sizeof(pci_tdisp_device_interface_report_response_t) + length);
+    LIBSPDM_ASSERT (*response_size >=
+                    sizeof(pci_tdisp_device_interface_report_response_t) + length);
     *response_size = sizeof(pci_tdisp_device_interface_report_response_t) + length;
 
     libspdm_zero_mem (response, *response_size);
     tdisp_response->header.version = tdisp_request->header.version;
     tdisp_response->header.message_type = PCI_TDISP_DEVICE_INTERFACE_REPORT;
-    tdisp_response->header.interface_id.function_id = tdisp_request->header.interface_id.function_id;
+    tdisp_response->header.interface_id.function_id =
+        tdisp_request->header.interface_id.function_id;
 
     tdisp_response->portion_length = length;
     tdisp_response->remainder_length = interface_report_size - (length + offset);
