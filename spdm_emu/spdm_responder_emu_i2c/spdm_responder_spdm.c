@@ -39,8 +39,8 @@ libspdm_return_t spdm_get_response_vendor_defined_request(
     void *response);
 
 libspdm_return_t spdm_device_send_message(void *spdm_context,
-                                       size_t response_size, const void *response,
-                                       uint64_t timeout)
+                                          size_t response_size, const void *response,
+                                          uint64_t timeout)
 {
     bool result;
 
@@ -60,9 +60,9 @@ libspdm_return_t spdm_device_send_message(void *spdm_context,
 }
 
 libspdm_return_t spdm_device_receive_message(void *spdm_context,
-                                          size_t *request_size,
-                                          void **request,
-                                          uint64_t timeout)
+                                             size_t *request_size,
+                                             void **request,
+                                             uint64_t timeout)
 {
     bool result;
 
@@ -116,6 +116,54 @@ void *spdm_server_init(void)
     }
     spdm_context = m_spdm_context;
     libspdm_init_context(spdm_context);
+
+    libspdm_register_device_io_func(spdm_context, spdm_device_send_message,
+                                    spdm_device_receive_message);
+    if (m_use_transport_layer == SOCKET_TRANSPORT_TYPE_MCTP) {
+        libspdm_register_transport_layer_func(
+            spdm_context,
+            LIBSPDM_MAX_SPDM_MSG_SIZE,
+            LIBSPDM_TRANSPORT_ADDITIONAL_SIZE,
+            libspdm_transport_mctp_encode_message,
+            libspdm_transport_mctp_decode_message,
+            libspdm_transport_mctp_get_header_size);
+    } else if (m_use_transport_layer == SOCKET_TRANSPORT_TYPE_PCI_DOE) {
+        libspdm_register_transport_layer_func(
+            spdm_context,
+            LIBSPDM_MAX_SPDM_MSG_SIZE,
+            LIBSPDM_TRANSPORT_ADDITIONAL_SIZE,
+            libspdm_transport_pci_doe_encode_message,
+            libspdm_transport_pci_doe_decode_message,
+            libspdm_transport_pci_doe_get_header_size);
+    } else if (m_use_transport_layer == SOCKET_TRANSPORT_TYPE_TCP) {
+        libspdm_register_transport_layer_func(
+            spdm_context,
+            LIBSPDM_MAX_SPDM_MSG_SIZE,
+            LIBSPDM_TRANSPORT_ADDITIONAL_SIZE,
+            libspdm_transport_tcp_encode_message,
+            libspdm_transport_tcp_decode_message,
+            libspdm_transport_tcp_get_header_size);
+    } else if (m_use_transport_layer == SOCKET_TRANSPORT_TYPE_NONE) {
+        libspdm_register_transport_layer_func(
+            spdm_context,
+            LIBSPDM_MAX_SPDM_MSG_SIZE,
+            LIBSPDM_TRANSPORT_ADDITIONAL_SIZE,
+            spdm_transport_none_encode_message,
+            spdm_transport_none_decode_message,
+            spdm_transport_none_get_header_size);
+    } else {
+        free(m_spdm_context);
+        m_spdm_context = NULL;
+        return NULL;
+    }
+    libspdm_register_device_buffer_func(spdm_context,
+                                        LIBSPDM_SENDER_BUFFER_SIZE,
+                                        LIBSPDM_RECEIVER_BUFFER_SIZE,
+                                        spdm_device_acquire_sender_buffer,
+                                        spdm_device_release_sender_buffer,
+                                        spdm_device_acquire_receiver_buffer,
+                                        spdm_device_release_receiver_buffer);
+
     scratch_buffer_size = libspdm_get_sizeof_required_scratch_buffer(m_spdm_context);
     m_scratch_buffer = (void *)malloc(scratch_buffer_size);
     if (m_scratch_buffer == NULL) {
@@ -123,38 +171,13 @@ void *spdm_server_init(void)
         m_spdm_context = NULL;
         return NULL;
     }
-
-    libspdm_register_device_io_func(spdm_context, spdm_device_send_message,
-                                    spdm_device_receive_message);
-    if (m_use_transport_layer == SOCKET_TRANSPORT_TYPE_MCTP) {
-        libspdm_register_transport_layer_func(
-            spdm_context, libspdm_transport_mctp_encode_message,
-            libspdm_transport_mctp_decode_message,
-            libspdm_transport_mctp_get_header_size);
-    } else if (m_use_transport_layer == SOCKET_TRANSPORT_TYPE_PCI_DOE) {
-        libspdm_register_transport_layer_func(
-            spdm_context, libspdm_transport_pci_doe_encode_message,
-            libspdm_transport_pci_doe_decode_message,
-            libspdm_transport_pci_doe_get_header_size);
-    } else if (m_use_transport_layer == SOCKET_TRANSPORT_TYPE_NONE) {
-        libspdm_register_transport_layer_func(
-            spdm_context, spdm_transport_none_encode_message,
-            spdm_transport_none_decode_message,
-            spdm_transport_none_get_header_size);
-    } else {
-        return NULL;
-    }
-    libspdm_register_device_buffer_func(spdm_context,
-                                        spdm_device_acquire_sender_buffer,
-                                        spdm_device_release_sender_buffer,
-                                        spdm_device_acquire_receiver_buffer,
-                                        spdm_device_release_receiver_buffer);
-
     libspdm_set_scratch_buffer (spdm_context, m_scratch_buffer, scratch_buffer_size);
 
     if (m_load_state_file_name != NULL) {
         status = spdm_load_negotiated_state(spdm_context, false);
         if (LIBSPDM_STATUS_IS_ERROR(status)) {
+            free(m_spdm_context);
+            m_spdm_context = NULL;
             return NULL;
         }
     }
@@ -282,7 +305,7 @@ void spdm_server_connection_state_callback(
             status = spdm_provision_psk_version_only (spdm_context, false);
             if (LIBSPDM_STATUS_IS_ERROR(status)) {
                 LIBSPDM_ASSERT (false);
-                return ;
+                return;
             }
             /* pass through to NEGOTIATED */
         } else {
@@ -357,14 +380,21 @@ void spdm_server_connection_state_callback(
                 m_use_slot_id = 0xFF;
             }
             if (m_use_slot_id == 0xFF) {
-                res = libspdm_read_requester_public_certificate_chain(
-                    m_use_hash_algo, m_use_req_asym_algo, &data,
-                    &data_size, NULL, NULL);
+                res = libspdm_read_responder_public_key(m_use_asym_algo, &data, &data_size);
                 if (res) {
                     libspdm_zero_mem(&parameter, sizeof(parameter));
                     parameter.location = LIBSPDM_DATA_LOCATION_LOCAL;
                     libspdm_set_data(spdm_context,
-                                     LIBSPDM_DATA_PEER_PUBLIC_CERT_CHAIN,
+                                     LIBSPDM_DATA_LOCAL_PUBLIC_KEY,
+                                     &parameter, data, data_size);
+                    /* Do not free it.*/
+                }
+                res = libspdm_read_requester_public_key(m_use_req_asym_algo, &data, &data_size);
+                if (res) {
+                    libspdm_zero_mem(&parameter, sizeof(parameter));
+                    parameter.location = LIBSPDM_DATA_LOCATION_LOCAL;
+                    libspdm_set_data(spdm_context,
+                                     LIBSPDM_DATA_PEER_PUBLIC_KEY,
                                      &parameter, data, data_size);
                     /* Do not free it.*/
                 }
@@ -406,21 +436,6 @@ void spdm_server_connection_state_callback(
                                  LIBSPDM_DATA_BASIC_MUT_AUTH_REQUESTED,
                                  &parameter, &data8, sizeof(data8));
             }
-        }
-
-        /*the requester provisioned cert_chain in which responder slot */
-        if (m_use_slot_id == 0xFF) {
-            data8 = 0;
-            libspdm_set_data(spdm_context,
-                             LIBSPDM_DATA_LOCAL_PUBLIC_CERT_CHAIN_DEFAULT_SLOT_ID,
-                             NULL, &data8, sizeof(data8));
-        }
-
-        status = libspdm_set_data(spdm_context, LIBSPDM_DATA_PSK_HINT, NULL,
-                                  LIBSPDM_TEST_PSK_HINT_STRING,
-                                  sizeof(LIBSPDM_TEST_PSK_HINT_STRING));
-        if (LIBSPDM_STATUS_IS_ERROR(status)) {
-            printf("libspdm_set_data - %x\n", (uint32_t)status);
         }
 
         if (m_save_state_file_name != NULL) {
