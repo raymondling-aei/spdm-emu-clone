@@ -5,6 +5,7 @@
  **/
 
 #include "spdm_requester_emu.h"
+#include "library/aardvark.h"
 
 uint8_t m_receive_buffer[LIBSPDM_MAX_SENDER_RECEIVER_BUFFER_SIZE];
 
@@ -191,6 +192,31 @@ int main(int argc, char *argv[])
 {
     printf("%s version 0.1\n", "spdm_requester_emu");
     srand((unsigned int)time(NULL));
+
+    //=============================== total phase API test code
+    printf("detect total phase...\n");
+    u16 ports[16];
+    u32 unique_ids[16];
+    int nelem = 16;
+    int count = aa_find_devices_ext(nelem, ports, nelem, unique_ids);
+    int i;
+    printf("%d device(s) found:\n", count);
+    if (count > nelem)  count = nelem;
+    for (i = 0; i < count; ++i) {
+        // Determine if the device is in-use
+        const char* status = "(avail) ";
+        if (ports[i] & AA_PORT_NOT_FREE) {
+            ports[i] &= ~AA_PORT_NOT_FREE;
+            status = "(in-use)";
+        }
+
+        // Display device port number, in-use status, and serial number
+        printf("    port=%-3d %s (%04d-%06d)\n",
+            ports[i], status,
+            unique_ids[i] / 1000000,
+            unique_ids[i] % 1000000);
+    }
+    //===============================
 
     process_args("spdm_requester_emu", argc, argv);
 
