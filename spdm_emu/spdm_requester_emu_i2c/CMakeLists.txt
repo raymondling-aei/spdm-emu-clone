@@ -49,6 +49,7 @@ SET(spdm_requester_emu_i2c_LIBRARY
     pci_tdisp_requester_lib
     cxl_ide_km_requester_lib
     platform_lib
+    aardvark_i2c_lib
 )
 
 if((TOOLCHAIN STREQUAL "KLEE") OR (TOOLCHAIN STREQUAL "CBMC"))
@@ -74,6 +75,7 @@ if((TOOLCHAIN STREQUAL "KLEE") OR (TOOLCHAIN STREQUAL "CBMC"))
                    $<TARGET_OBJECTS:pci_tdisp_requester_lib>
                    $<TARGET_OBJECTS:cxl_ide_km_requester_lib>
                    $<TARGET_OBJECTS:platform_lib>
+                   $<TARGET_OBJECTS:aardvark_i2c_lib>
     )
 else()
     ADD_EXECUTABLE(spdm_requester_emu_i2c ${src_spdm_requester_emu_i2c})
