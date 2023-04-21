@@ -21,7 +21,7 @@ else()
     STRING(REPLACE "/" "\\" DEST ${EXECUTABLE_OUTPUT_PATH})
 endif()
 
-ADD_CUSTOM_COMMAND(TARGET MyTest spdm_requester_emu_i2c
+ADD_CUSTOM_COMMAND(TARGET aardvark_i2c_lib
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${CMAKE_CURRENT_SOURCE_DIR}/aardvark.dll"
                 ${DEST})
